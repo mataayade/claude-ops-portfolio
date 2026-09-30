@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI エージェント運用基盤</title>
+<meta name="description" content="AI が安全に働ける箱を作り、本番を回す。個人で構築・運用している AI エージェント運用基盤の図解。">
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #f4f5f7;
+  --border: #d8dbe0;
+  --text: #1a1d23;
+  --muted: #4a515c;
+  --accent: #0b5cad;
+  --accent-text: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161a;
+    --surface: #1f2228;
+    --border: #3a3f48;
+    --text: #e8eaed;
+    --muted: #b4bac4;
+    --accent: #6cb0f5;
+    --accent-text: #0d1117;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161a;
+  --surface: #1f2228;
+  --border: #3a3f48;
+  --text: #e8eaed;
+  --muted: #b4bac4;
+  --accent: #6cb0f5;
+  --accent-text: #0d1117;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+main { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+section { margin-top: 48px; }
+h1 { font-size: 16px; font-weight: 600; color: var(--muted); margin: 0 0 8px; }
+h2 { font-size: 24px; line-height: 1.4; margin: 0 0 16px; }
+h3 { font-size: 16px; margin: 16px 0 8px; }
+p { margin: 0 0 16px; max-width: 40em; }
+.lead { font-size: 24px; font-weight: 700; line-height: 1.5; margin: 0 0 16px; }
+.muted { color: var(--muted); }
+.note { font-size: 16px; color: var(--muted); }
+a { color: var(--accent); }
+
+/* 数値 */
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 24px 0; padding: 0; list-style: none; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.stat b { display: block; font-size: 24px; line-height: 1.3; }
+.stat span { color: var(--muted); }
+
+.btn {
+  display: inline-flex; align-items: center; min-height: 48px; padding: 8px 24px;
+  background: var(--accent); color: var(--accent-text); border-radius: 8px;
+  text-decoration: none; font-weight: 700;
+}
+.btn:hover { opacity: 0.85; }
+
+/* 4 層の図 */
+.stack { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.top-node { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+.arrow { text-align: center; color: var(--muted); line-height: 1; }
+.layer { border: 2px solid var(--border); border-radius: 8px; background: var(--bg); }
+.layer.open { border-color: var(--accent); }
+.layer-btn {
+  width: 100%; min-height: 64px; display: flex; align-items: center; gap: 16px;
+  padding: 16px; background: none; border: 0; color: var(--text);
+  font: inherit; text-align: left; cursor: pointer; border-radius: 8px;
+}
+.layer-btn:hover { background: var(--surface); }
+.layer-btn .num { flex: 0 0 40px; height: 40px; border-radius: 50%; background: var(--accent); color: var(--accent-text); display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.layer-btn .title { flex: 1 1 auto; min-width: 0; }
+.layer-btn .title strong { display: block; font-size: 18px; }
+.layer-btn .title small { display: block; font-size: 16px; color: var(--muted); }
+.layer-btn .toggle { flex: 0 0 auto; color: var(--accent); font-weight: 700; }
+.panel { padding: 0 16px 16px; border-top: 1px solid var(--border); }
+.panel[hidden] { display: none; }
+.panel dl { margin: 0; }
+.panel dt { font-weight: 700; margin-top: 16px; }
+.panel dd { margin: 8px 0 0; }
+.term { display: block; margin-top: 8px; padding: 8px 16px; background: var(--surface); border-radius: 8px; font-size: 16px; color: var(--muted); }
+.controls { margin-top: 16px; }
+.link-btn { min-height: 44px; padding: 8px 16px; background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--text); font: inherit; cursor: pointer; }
+.link-btn:hover { background: var(--surface); }
+
+/* 事故の流れ */
+.flow { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.flow li { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.flow li .step { font-weight: 700; color: var(--accent); display: block; }
+.flow .down { background: none; border: 0; padding: 0; text-align: center; color: var(--muted); }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 24px; }
+footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); }
+code { font-family: ui-monospace, Consolas, monospace; font-size: 15px; background: var(--surface); padding: 0 4px; border-radius: 4px; }
+
+@media (min-width: 640px) {
+  .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>AI エージェント運用基盤（個人で構築・運用中）</h1>
+  <p class="lead">コードは書かない。AI が安全に働ける「箱」を作り、その上で本番を回す。</p>
+  <p>AI に作業を任せるときの「お金」「安全」「記憶」を仕組みで管理する土台です。2026 年 1 月から、日常の開発・運用作業のすべてをこの上で回しています。</p>
+  <ul class="stats">
+    <li class="stat"><b>2026-01〜</b><span>稼働中</span></li>
+    <li class="stat"><b>8 社</b><span>の AI を直接呼び分け（＋自宅 PC の AI）</span></li>
+    <li class="stat"><b>6 本</b><span>の自動ストッパー（hook）</span></li>
+    <li class="stat"><b>33 件</b><span>失敗から作った恒久ルール</span></li>
+  </ul>
+  <a class="btn" href="https://github.com/mataayade/claude-ops-portfolio">GitHub で実物のコードを見る</a>
+</header>
+
+<section id="layers" aria-labelledby="layers-h">
+  <h2 id="layers-h">4 つの層でできています</h2>
+  <p class="muted">各層をクリックすると「何をするか・なぜそうしたか・実例」が開きます。</p>
+
+  <div class="stack">
+    <div class="top-node">利用者（私）が指示を出す</div>
+    <div class="arrow" aria-hidden="true">&#8595;</div>
+    <div class="top-node">Claude Code（AI が実際に作業する実行環境）</div>
+    <div class="arrow" aria-hidden="true">&#8595;</div>
+
+    <div class="layer">
+      <button class="layer-btn" type="button" aria-expanded="false" aria-controls="p1">
+        <span class="num" aria-hidden="true">1</span>
+        <span class="title"><strong>振り分け層</strong><small>どの AI に頼むかを決める</small></span>
+        <span class="toggle" aria-hidden="true">開く</span>
+      </button>
+      <div class="panel" id="p1" hidden>
+        <dl>
+          <dt>何をするか</dt>
+          <dd>作業の内容と機密度を見て、8 社（Anthropic / Google / xAI / OpenAI / DeepSeek / Moonshot / Zhipu / NVIDIA）の AI と、自宅 PC で動く AI（Ollama）を呼び分けます。中身は自作のプログラム <code>ask.py</code>（1,228 行）です。
+            <span class="term">API（エーピーアイ）= プログラムから AI を呼び出す窓口。「直 API」は仲介業者を通さず各社と直接つなぐこと。</span>
+          </dd>
+          <dt>なぜそうしたか（設計判断）</dt>
+          <dd>同じ作業を最上位の AI で回すと、単価が 5〜10 倍になります。要約や下調べは安い AI、設計や監査だけ高い AI に限定し、呼び出しごとの使用量と概算コストを毎回表示して、お金の流れを常に見えるようにしました。<br>
+            また、API キー・顧客データ・個人情報などの機密を含む作業は、外部の会社に送らず自宅 PC の AI へ強制的に回します。</dd>
+          <dt>実例</dt>
+          <dd>AI のモデル名は半年放っておくと全社で 1〜3 世代古くなることを実測しました。そこで各社の最新モデル一覧を定期的に確認する手順を運用に組み込んでいます。</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="layer">
+      <button class="layer-btn" type="button" aria-expanded="false" aria-controls="p2">
+        <span class="num" aria-hidden="true">2</span>
+        <span class="title"><strong>委譲層</strong><small>仕事を担当者に割り振る</small></span>
+        <span class="toggle" aria-hidden="true">開く</span>
+      </button>
+      <div class="panel" id="p2" hidden>
+        <dl>
+          <dt>何をするか</dt>
+          <dd>サブエージェント 6 体とスキル 11 種で、仕事を役割ごとに分けて任せます。
+            <span class="term">サブエージェント = 特定の仕事だけを受け持つ「AI の担当者」。スキル = 定型作業の手順書。</span>
+          </dd>
+          <dt>なぜそうしたか（設計判断）</dt>
+          <dd>要約は軽いモデル、分析は中位、難しい判断は上位のモデル、と担当を分けることで、コストと品質を両立させています。担当者への指示書には「ゴール・制約・検証方法・報告の形式」を必ず書きます。</dd>
+          <dt>実例</dt>
+          <dd>担当者の構成は運用しながら見直し、7 体から 6 体へ整理しました。</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="layer">
+      <button class="layer-btn" type="button" aria-expanded="false" aria-controls="p3">
+        <span class="num" aria-hidden="true">3</span>
+        <span class="title"><strong>安全層</strong><small>危ない操作を実行前に止める</small></span>
+        <span class="toggle" aria-hidden="true">開く</span>
+      </button>
+      <div class="panel" id="p3" hidden>
+        <dl>
+          <dt>何をするか</dt>
+          <dd>hook 6 本（計 453 行）が AI の操作を見張ります。うち 4 本は実行前チェック（PreToolUse）で、データの一括削除、課金操作、機密を含む外部送信などを見つけると、実行前に止めます。残り 2 本は作業の開始・終了の記録です。
+            <span class="term">hook（フック）= AI が操作する直前に必ず割り込んで中身を確認する自動ストッパー。</span>
+          </dd>
+          <dt>なぜそうしたか（設計判断）</dt>
+          <dd>「絶対に起きてはいけないこと」は AI の判断に任せず、仕組みで止めます。危険な操作は hook と許可設定の拒否リストで二重にブロックしています。<br>
+            一方で、確認を増やしすぎると AI が自分で動けなくなります。そこで「普段は確認なしで進める。お金とリスクが絡む時だけ人間に確認する」という境界を決めて明文化しました。</dd>
+          <dt>実例</dt>
+          <dd>2026-07-09 の事故をきっかけに作った hook があります。下の「事故から仕組みへ」で流れを紹介します。</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="layer">
+      <button class="layer-btn" type="button" aria-expanded="false" aria-controls="p4">
+        <span class="num" aria-hidden="true">4</span>
+        <span class="title"><strong>記憶層</strong><small>失敗から学んだことを残す</small></span>
+        <span class="toggle" aria-hidden="true">開く</span>
+      </button>
+      <div class="panel" id="p4" hidden>
+        <dl>
+          <dt>何をするか</dt>
+          <dd>memory 66 件と索引で、過去の判断や注意点を AI に引き継ぎます。うち 33 件は、失敗から作った恒久ルールです。
+            <span class="term">memory（メモリー）= 会話をまたいで AI が読み返すメモ。次の作業でも同じ失敗をしないために使う。</span>
+          </dd>
+          <dt>なぜそうしたか（設計判断）</dt>
+          <dd>メモは「書いた時点の事実」であって、今の状態とは限りません。メモを鵜呑みにして断定せず、発言の前に現状を確認し直すルールを基盤に組み込みました。</dd>
+          <dt>実例</dt>
+          <dd>事故が起きるたびに「原因 → 恒久ルール → 基盤への反映」を行い、その記録が 33 件のルールとして蓄積されています。
+            <span class="term">記憶層は個人の実データを含むため、GitHub には公開していません。</span></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="link-btn" type="button" id="toggle-all">すべて開く</button>
+  </div>
+</section>
+
+<section id="incident" aria-labelledby="incident-h">
+  <h2 id="incident-h">事故から仕組みへ：2026-07-09 の実例</h2>
+  <p>失敗を「気をつける」で終わらせず、同じ事故が二度と起きない仕組みに変えます。</p>
+  <ol class="flow">
+    <li><span class="step">1. 事故</span>複数行の文章をまとめて渡す書き方（heredoc）が、AI の操作命令の形を壊してしまう事故が起きました。壊れた形はその後も繰り返し現れました。
+      <span class="term">heredoc（ヒアドキュメント）= コマンドに複数行の文章をまとめて渡す書き方。</span></li>
+    <li class="down" aria-hidden="true">&#8595;</li>
+    <li><span class="step">2. ルール化</span>原因を切り分け、「この書き方は使わない」を恒久ルールとして記憶層に残しました。</li>
+    <li class="down" aria-hidden="true">&#8595;</li>
+    <li><span class="step">3. 基盤に反映</span>ルールを AI の注意力に頼らず、hook で全面ブロックにしました。AI がこの書き方を使おうとすると、実行前に止まり、理由が AI に返ります。</li>
+  </ol>
+  <p class="note">実物のコード: <a href="https://github.com/mataayade/claude-ops-portfolio/blob/main/hooks/pretooluse-heredoc-gate.py">hooks/pretooluse-heredoc-gate.py</a></p>
+</section>
+
+<section id="production" aria-labelledby="production-h">
+  <h2 id="production-h">この基盤の上で回している本番</h2>
+  <div class="card">
+    <p><strong>受注・顧客・決済管理 CRM（有償）</strong></p>
+    <p>2026-02 に本稼働。2026-02〜08 の期間で、依頼者約 400 名・注文約 1,000 件を処理しました。</p>
+    <p class="note" style="margin:0">CRM（シーアールエム）= 顧客と注文の情報をまとめて管理する業務システム。</p>
+  </div>
+</section>
+
+<section id="role" aria-labelledby="role-h">
+  <h2 id="role-h">私の役割</h2>
+  <p>実装は AI に任せ、私は要件定義・設計・コードレビュー・動作確認・本番運用を担当しています。AI のモデルは入れ替わる消耗品ですが、振り分け・安全・記憶の基盤は残ります。「AI に作らせる」のではなく「AI が安全に働ける箱を作り、箱の方を育てる」のが私の仕事です。</p>
+  <a class="btn" href="https://github.com/mataayade/claude-ops-portfolio">GitHub リポジトリを開く</a>
+  <p class="note" style="margin-top:16px">まず読むなら: <code>hooks/pretooluse-heredoc-gate.py</code>（事故から生まれた hook）、<code>agents/codex-implementer.md</code>（担当者への指示書）、<code>scripts/ask.py</code>（振り分けの本体）。</p>
+</section>
+
+<footer>
+  <p style="margin:0">このページの数値は 2026-09 時点のものです。実データ・個人情報はリポジトリにもこのページにも含みません。</p>
+</footer>
+</main>
+
+<script>
+(function () {
+  var buttons = document.querySelectorAll('.layer-btn');
+  var toggleAll = document.getElementById('toggle-all');
+
+  function setOpen(btn, open) {
+    var panel = document.getElementById(btn.getAttribute('aria-controls'));
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    panel.hidden = !open;
+    btn.parentElement.classList.toggle('open', open);
+    btn.querySelector('.toggle').textContent = open ? '閉じる' : '開く';
+  }
+
+  function syncToggleAll() {
+    var allOpen = Array.prototype.every.call(buttons, function (b) {
+      return b.getAttribute('aria-expanded') === 'true';
+    });
+    toggleAll.textContent = allOpen ? 'すべて閉じる' : 'すべて開く';
+  }
+
+  Array.prototype.forEach.call(buttons, function (btn) {
+    btn.addEventListener('click', function () {
+      setOpen(btn, btn.getAttribute('aria-expanded') !== 'true');
+      syncToggleAll();
+    });
+  });
+
+  toggleAll.addEventListener('click', function () {
+    var openAll = toggleAll.textContent === 'すべて開く';
+    Array.prototype.forEach.call(buttons, function (b) { setOpen(b, openAll); });
+    syncToggleAll();
+  });
+})();
+</script>
+</body>
+</html>
